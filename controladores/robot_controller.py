@@ -36,11 +36,11 @@ class MinimalPublisher(Node):
         self.linear_errors = []
 
         self.akp = 1
-        self.aki = 0.1
+        self.aki = 0.01
         self.angular_errors = []
 
         # Where is my end goal?
-        self.setpoint = (3.0, 3.0)
+        self.setpoint = (-3.0, 3.0)
 
         # This should constantly be updated by the odometry
         self.current_position = (0.0, 0.0)
@@ -52,7 +52,7 @@ class MinimalPublisher(Node):
         position = msg.pose.pose.position
         orientation = msg.pose.pose.orientation
 
-        self.current_position = (position.x, position.y)
+        self.current_position = (position.y, position.x)
         self.current_angle = orientation.z
 
     def calculate_errors(self):
@@ -61,7 +61,10 @@ class MinimalPublisher(Node):
         delta_x = sx - cx
         delta_y = sy - cy
 
-        expected_angle = math.atan(delta_y / delta_x)
+        # This is wrong
+
+        expected_angle = math.atan(delta_x / delta_y)
+        # expected_angle = math.atan(delta_y / delta_x)
 
         return (expected_angle - self.current_angle, math.sqrt(delta_x**2 + delta_y**2))
 
@@ -75,10 +78,13 @@ class MinimalPublisher(Node):
         aerror, _ = self.calculate_errors()
         angular = self.akp * aerror + self.aki * sum(self.angular_errors)
 
+        self.angular_errors.append(aerror)
+
         print("angular", aerror, angular)
 
-        if (aerror**2) < 0.1:
+        if abs(aerror) < 0.1:
             self.state = "move_straight"
+            self.angular_errors = []
 
         msg = Twist()
         msg.linear.x = 0.0
@@ -101,9 +107,9 @@ class MinimalPublisher(Node):
 
         print("linear", lerror, linear)
 
-        if (lerror**2) < 0.5:
+        if abs(lerror) < 0.2:
             self.state = "terminal"
-        elif (aerror**2) > 0.2:
+        elif abs(aerror) > 0.2:
             self.state = "adjust_angle"
 
         msg = Twist()
