@@ -38,7 +38,7 @@ class MinimalPublisher(Node):
         self.angular_errors = []
 
         # Where is my end goal?
-        self.setpoint = (-3.0, -3.0)
+        self.setpoint = (3.0, 3.0)
 
         # This should constantly be updated by the odometry
         self.current_position = (0.0, 0.0)
@@ -99,7 +99,10 @@ class MinimalPublisher(Node):
         delta_x = sx - cx
         delta_y = sy - cy
 
-        expected_angle = math.atan(delta_x / delta_y)
+        expected_angle = MinimalPublisher.expected_angle(self.current_position, self.setpoint)
+
+        print("expected angle", expected_angle)
+        print("current angle", self.current_angle)
 
         return (expected_angle - self.current_angle, math.sqrt(delta_x**2 + delta_y**2))
 
@@ -116,17 +119,19 @@ class MinimalPublisher(Node):
 
         current_timestamp = time.time()
 
-        self.angular_errors.append(aerror * (current_timestamp - self.last_timestamp))
+        if self.last_timestamp != 0.0:
+            self.angular_errors.append(aerror * (current_timestamp - self.last_timestamp))
+
         self.last_timestamp = current_timestamp
 
         print("angular", aerror, angular)
 
-        # if self.is_near_object():
-        #     self.state = "dodge_angle"
-        #     self.angular_errors = []
-        # if abs(aerror) < 0.1:
-        #     self.state = "move_straight"
-        #     self.angular_errors = []
+        if self.is_near_object():
+            self.state = "dodge_angle"
+            self.angular_errors = []
+        if abs(aerror) < 0.1:
+            self.state = "move_straight"
+            self.angular_errors = []
 
         msg = Twist()
         msg.linear.x = 0.0
@@ -149,8 +154,8 @@ class MinimalPublisher(Node):
 
         if abs(lerror) < 0.2:
             self.state = "terminal"
-        # elif self.is_near_object():
-        #     self.state = "dodge_angle"
+        elif self.is_near_object():
+            self.state = "dodge_angle"
         elif abs(aerror) > 0.2:
             self.state = "adjust_angle"
 
