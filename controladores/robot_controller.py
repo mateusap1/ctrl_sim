@@ -38,13 +38,13 @@ class MinimalPublisher(Node):
         self.angular_errors = []
 
         # Where is my end goal?
-        self.setpoint = (3.0, 3.0)
+        self.setpoint = (-3.0, 3.0)
 
         # This should constantly be updated by the odometry
         self.current_position = (0.0, 0.0)
         self.current_angle = 0.0
 
-        self.distance_limit = 1.0
+        self.distance_limit = 0.5
         self.closest_distance = math.inf
         self.closest_angle = 0.0
         self.left_better = False
@@ -55,9 +55,11 @@ class MinimalPublisher(Node):
         position = msg.pose.pose.position
         orientation = msg.pose.pose.orientation
 
-        self.current_position = (position.y, position.x)
-        # self.current_position = (position.x, position.y)
-        self.current_angle = orientation.z
+        self.current_position = (position.x, position.y)
+
+        self.current_angle = math.atan2(
+            2 * orientation.w * orientation.z, 1 - 2 * orientation.z**2
+        )
 
     def odom_listener_callback(self, msg: Odometry):
         self.load_odometry(msg)
@@ -99,7 +101,9 @@ class MinimalPublisher(Node):
         delta_x = sx - cx
         delta_y = sy - cy
 
-        expected_angle = MinimalPublisher.expected_angle(self.current_position, self.setpoint)
+        expected_angle = MinimalPublisher.expected_angle(
+            self.current_position, self.setpoint
+        )
 
         print("expected angle", expected_angle)
         print("current angle", self.current_angle)
@@ -120,7 +124,9 @@ class MinimalPublisher(Node):
         current_timestamp = time.time()
 
         if self.last_timestamp != 0.0:
-            self.angular_errors.append(aerror * (current_timestamp - self.last_timestamp))
+            self.angular_errors.append(
+                aerror * (current_timestamp - self.last_timestamp)
+            )
 
         self.last_timestamp = current_timestamp
 
