@@ -30,7 +30,6 @@ class MinimalPublisher(Node):
         self.robot_position = (0.0, 0.0)
         self.robot_angle = 0.0
 
-        self.object_position = (0.0, 0.0)
         self.front_is_clear = True
 
         self.i = 0
@@ -53,15 +52,9 @@ class MinimalPublisher(Node):
         self.i += 1
 
     def scan_listener_callback(self, msg: LaserScan):
-        clear_ranges = MinimalPublisher.front_clear_range(
-            msg.angle_min, msg.angle_increment, msg.ranges, 1.0
-        )
-
         self.front_is_clear = MinimalPublisher.is_front_clear(
-            clear_ranges, -math.pi / 4, math.pi / 4
+            msg.angle_increment, msg.ranges, 1.0, math.pi / 4
         )
-
-        print("clear ranges", clear_ranges)
 
         relative_angle = None
         relative_distance = float("inf")
@@ -98,45 +91,39 @@ class MinimalPublisher(Node):
 
     @staticmethod
     def is_front_clear(
-        clear_ranges: List[Tuple[float, float]], min_angle: float, max_angle: float
-    ) -> bool:
-        for clear_range in clear_ranges:
-            if min_angle >= clear_range[0] and max_angle <= clear_range[1]:
-                return True
-
-        return False
-
-    @staticmethod
-    def front_clear_range(
-        angle_min: float,
         angle_incr: float,
         distances: List[float],
         distance_limit: float,
-    ) -> List[Tuple[float, float]]:
-        angle_ranges: List[Tuple[float, float]] = []
-
-        min_angle_clear = None
-        max_angle_clear = None
-
+        breadth: float,
+    ) -> bool:
         for i, distance in enumerate(distances):
-            angle = angle_min + i * angle_incr
+            angle = MinimalPublisher.normalize_angle((math.pi / 2) - i * angle_incr)
+            if angle < -breadth:
+                continue
+            if angle > breadth:
+                continue
 
             if distance <= distance_limit:
-                if min_angle_clear is not None and max_angle_clear is not None:
-                    angle_ranges.append((min_angle_clear, max_angle_clear))
+                return False
 
-                min_angle_clear = None
-                max_angle_clear = None
-            else:
-                if min_angle_clear is None:
-                    min_angle_clear = angle
+        return True
 
-                max_angle_clear = angle
+    @staticmethod
+    def normalize_angle(angle: float):
+        if angle >= -math.pi and angle <= math.pi:
+            return angle
 
-        if min_angle_clear is not None and max_angle_clear is not None:
-            angle_ranges.append((min_angle_clear, max_angle_clear))
+        if angle > 2 * math.pi:
+            return MinimalPublisher.normalize_angle(2 * math.pi % angle)
 
-        return angle_ranges
+        if angle < -2 * math.pi:
+            return MinimalPublisher.normalize_angle(-(2 * math.pi % angle))
+
+        if angle > math.pi:
+            return MinimalPublisher.normalize_angle(angle - 2 * math.pi)
+
+        if angle < math.pi:
+            return MinimalPublisher.normalize_angle(angle + 2 * math.pi)
 
 
 def main(args=None):
